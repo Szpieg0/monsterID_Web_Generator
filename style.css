@@ -23,7 +23,7 @@ body {
 }
 
 .app {
-  width: min(100%, 32rem);
+  width: min(100%, 42rem);
   background: var(--card);
   border-radius: 1rem;
   box-shadow: 0 10px 30px rgba(17, 24, 39, 0.12);
@@ -41,27 +41,102 @@ h1 {
   color: #374151;
 }
 
-button {
-  border: 0;
+button,
+select,
+input,
+.download-link {
   border-radius: 0.75rem;
+  font-size: 1rem;
+}
+
+button,
+.download-link {
+  border: 0;
   background: var(--accent);
   color: #fff;
-  font-size: 1rem;
   font-weight: 700;
-  padding: 0.8rem 1.2rem;
+  padding: 0.75rem 1rem;
   cursor: pointer;
-  width: 100%;
   transition: background-color 0.2s ease;
 }
 
 button:hover,
-button:focus-visible {
+button:focus-visible,
+.download-link:hover,
+.download-link:focus-visible {
   background: var(--accent-hover);
 }
 
-button:focus-visible {
+button:focus-visible,
+.download-link:focus-visible {
   outline: 3px solid #93c5fd;
   outline-offset: 2px;
+}
+
+.version-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.mode-button {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.mode-button.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.panel {
+  margin-bottom: 1rem;
+}
+
+.panel-subtitle {
+  margin: 0 0 0.75rem;
+  color: #374151;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.controls-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+select,
+input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  padding: 0.5rem 0.65rem;
+}
+
+input[type='color'] {
+  padding: 0.2rem;
+  min-height: 2.5rem;
+}
+
+#generate-button,
+#generate-custom-button,
+.download-link {
+  width: 100%;
 }
 
 .result {
@@ -77,12 +152,54 @@ button:focus-visible {
   border: 1px solid #e5e7eb;
 }
 
+.download-link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  text-decoration: none;
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.gallery-item {
+  padding: 0.65rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #fafafa;
+  display: grid;
+  gap: 0.4rem;
+  justify-items: center;
+}
+
+.gallery-item img {
+  width: 100%;
+  max-width: 120px;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+.gallery-item a {
+  color: #1d4ed8;
+  font-size: 0.9rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.gallery-item a:hover,
+.gallery-item a:focus-visible {
+  text-decoration: underline;
+}
+
 #result-caption,
 #status {
   color: #374151;
 }
 
 #status {
-  margin: 0.75rem 0 0;
+  margin: 0.9rem 0 0;
   min-height: 1.5em;
 }

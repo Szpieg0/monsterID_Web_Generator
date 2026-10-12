@@ -9,14 +9,62 @@
 <body>
   <main class="app">
     <h1>MonsterID Generator</h1>
-    <p class="subtitle">Kliknij przycisk, aby wygenerować dokładnie jednego Potworka.</p>
+    <p class="subtitle">Wybierz wersję generatora i twórz potworki.</p>
 
-    <button id="generate-button" type="button">Wygeneruj MonsterID</button>
+    <div class="version-switch" role="tablist" aria-label="Wybór wersji generatora">
+      <button id="mode-v1" class="mode-button is-active" type="button" data-mode="v1" role="tab" aria-selected="true">Wersja 1</button>
+      <button id="mode-v2" class="mode-button" type="button" data-mode="v2" role="tab" aria-selected="false">Wersja 2</button>
+    </div>
+
+    <section id="panel-v1" class="panel" aria-labelledby="mode-v1">
+      <p class="panel-subtitle">Szybkie losowanie jednego MonsterID jak dotychczas.</p>
+      <button id="generate-button" type="button">Wygeneruj MonsterID</button>
+    </section>
+
+    <section id="panel-v2" class="panel" aria-labelledby="mode-v2" hidden>
+      <p class="panel-subtitle">Wybierz składniki, kolor i ile potworków wygenerować (maks. 50).</p>
+
+      <div class="controls-grid">
+        <label> Nogi
+          <select id="pick-legs"></select>
+        </label>
+        <label> Włosy
+          <select id="pick-hair"></select>
+        </label>
+        <label> Ręce
+          <select id="pick-arms"></select>
+        </label>
+        <label> Tułów
+          <select id="pick-body"></select>
+        </label>
+        <label> Oczy
+          <select id="pick-eyes"></select>
+        </label>
+        <label> Usta
+          <select id="pick-mouth"></select>
+        </label>
+      </div>
+
+      <div class="controls-row">
+        <label> Kolor tułowia
+          <input id="body-color" type="color" value="#60a5fa">
+        </label>
+        <label> Liczba potworków (1-50)
+          <input id="monster-count" type="number" min="1" max="50" value="1">
+        </label>
+      </div>
+
+      <button id="generate-custom-button" type="button">Wygeneruj własnego MonsterID</button>
+    </section>
 
     <figure class="result" aria-labelledby="result-caption">
       <img id="monster-result" width="240" height="240" alt="Wynik jeszcze nie został wygenerowany." hidden>
       <figcaption id="result-caption">Wynik MonsterID</figcaption>
     </figure>
+
+    <a id="download-current" class="download-link" href="#" download="monsterid.png" hidden>Pobierz aktualny PNG</a>
+
+    <section id="gallery" class="gallery" aria-label="Wygenerowane potworki"></section>
 
     <p id="status" role="status" aria-live="polite">Gotowe do generowania.</p>
   </main>
