@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MonsterID Generator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <h1>MonsterID Generator</h1>
+    <p class="subtitle">Kliknij przycisk, aby wygenerować dokładnie jednego Potworka.</p>
+
+    <button id="generate-button" type="button">Wygeneruj MonsterID</button>
+
+    <figure class="result" aria-labelledby="result-caption">
+      <img id="monster-result" width="240" height="240" alt="Wynik jeszcze nie został wygenerowany." hidden>
+      <figcaption id="result-caption">Wynik MonsterID</figcaption>
+    </figure>
+
+    <p id="status" role="status" aria-live="polite">Gotowe do generowania.</p>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

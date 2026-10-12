@@ -1,0 +1,260 @@
+const MONSTER_SIZE = 120;
+const PARTS = {
+  legs: 5,
+  hair: 5,
+  arms: 5,
+  body: 15,
+  eyes: 15,
+  mouth: 10
+};
+
+const resultImage = document.getElementById('monster-result');
+const statusNode = document.getElementById('status');
+document.getElementById('generate-button').addEventListener('click', generateMonster);
+
+async function generateMonster() {
+  statusNode.textContent = 'Generowanie MonsterID…';
+
+  try {
+    const seed = `${Date.now()}-${Math.random()}`;
+    const rng = createRngFromSeed(seed);
+    const picks = {
+      legs: randInt(rng, 1, PARTS.legs),
+      hair: randInt(rng, 1, PARTS.hair),
+      arms: randInt(rng, 1, PARTS.arms),
+      body: randInt(rng, 1, PARTS.body),
+      eyes: randInt(rng, 1, PARTS.eyes),
+      mouth: randInt(rng, 1, PARTS.mouth)
+    };
+
+    const canvas = document.createElement('canvas');
+    canvas.width = MONSTER_SIZE;
+    canvas.height = MONSTER_SIZE;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, MONSTER_SIZE, MONSTER_SIZE);
+
+    await drawPart(ctx, `parts/legs_${picks.legs}.png`);
+    await drawPart(ctx, `parts/hair_${picks.hair}.png`);
+    await drawPart(ctx, `parts/arms_${picks.arms}.png`);
+
+    const bodyCanvas = document.createElement('canvas');
+    bodyCanvas.width = MONSTER_SIZE;
+    bodyCanvas.height = MONSTER_SIZE;
+    const bodyCtx = bodyCanvas.getContext('2d');
+    await drawPart(bodyCtx, `parts/body_${picks.body}.png`);
+
+    floodFillBody(bodyCtx, {
+      x: 60,
+      y: 60,
+      color: [randInt(rng, 20, 235), randInt(rng, 20, 235), randInt(rng, 20, 235), 255]
+    });
+
+    ctx.drawImage(bodyCanvas, 0, 0);
+
+    await drawPart(ctx, `parts/eyes_${picks.eyes}.png`);
+    await drawPart(ctx, `parts/mouth_${picks.mouth}.png`);
+
+    resultImage.src = canvas.toDataURL('image/png');
+    resultImage.alt = `Wygenerowany MonsterID (nogi ${picks.legs}, włosy ${picks.hair}, ręce ${picks.arms}, tułów ${picks.body}, oczy ${picks.eyes}, usta ${picks.mouth}).`;
+    resultImage.hidden = false;
+    statusNode.textContent = 'Wygenerowano jednego MonsterID.';
+  } catch (error) {
+    console.error(error);
+    statusNode.textContent = 'Nie udało się wygenerować MonsterID. Spróbuj ponownie.';
+  }
+}
+
+function drawPart(ctx, src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, MONSTER_SIZE, MONSTER_SIZE);
+      resolve();
+    };
+    img.onerror = () => reject(new Error(`Nie udało się załadować ${src}`));
+    img.src = src;
+  });
+}
+
+function floodFillBody(ctx, { x, y, color }) {
+  const imageData = ctx.getImageData(0, 0, MONSTER_SIZE, MONSTER_SIZE);
+  const { data } = imageData;
+  const start = (y * MONSTER_SIZE + x) * 4;
+  const target = [data[start], data[start + 1], data[start + 2], data[start + 3]];
+
+  if (sameColor(target, color)) return;
+
+  const stack = [[x, y]];
+  while (stack.length) {
+    const [cx, cy] = stack.pop();
+    if (cx < 0 || cy < 0 || cx >= MONSTER_SIZE || cy >= MONSTER_SIZE) continue;
+
+    const idx = (cy * MONSTER_SIZE + cx) * 4;
+    const current = [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
+    if (!sameColor(current, target)) continue;
+
+    data[idx] = color[0];
+    data[idx + 1] = color[1];
+    data[idx + 2] = color[2];
+    data[idx + 3] = color[3];
+
+    stack.push([cx + 1, cy]);
+    stack.push([cx - 1, cy]);
+    stack.push([cx, cy + 1]);
+    stack.push([cx, cy - 1]);
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function sameColor(a, b) {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+}
+
+function randInt(rng, min, max) {
+  return Math.floor(rng() * (max - min + 1)) + min;
+}
+
+function createRngFromSeed(seedText) {
+  const seed = parseInt(md5(seedText).slice(0, 6), 16) || Date.now();
+  let state = seed % 2147483647;
+  if (state <= 0) state += 2147483646;
+  return function rng() {
+    state = (state * 16807) % 2147483647;
+    return (state - 1) / 2147483646;
+  };
+}
+
+function md5(input) {
+  const hc = '0123456789abcdef';
+  function rh(n) {
+    let j;
+    let s = '';
+    for (j = 0; j <= 3; j += 1) {
+      s += hc.charAt((n >> (j * 8 + 4)) & 0x0f) + hc.charAt((n >> (j * 8)) & 0x0f);
+    }
+    return s;
+  }
+  function ad(x, y) {
+    const l = (x & 0xffff) + (y & 0xffff);
+    const m = (x >> 16) + (y >> 16) + (l >> 16);
+    return (m << 16) | (l & 0xffff);
+  }
+  function rl(n, c) {
+    return (n << c) | (n >>> (32 - c));
+  }
+  function cm(q, a, b, x, s, t) {
+    return ad(rl(ad(ad(a, q), ad(x, t)), s), b);
+  }
+  function ff(a, b, c, d, x, s, t) {
+    return cm((b & c) | (~b & d), a, b, x, s, t);
+  }
+  function gg(a, b, c, d, x, s, t) {
+    return cm((b & d) | (c & ~d), a, b, x, s, t);
+  }
+  function hh(a, b, c, d, x, s, t) {
+    return cm(b ^ c ^ d, a, b, x, s, t);
+  }
+  function ii(a, b, c, d, x, s, t) {
+    return cm(c ^ (b | ~d), a, b, x, s, t);
+  }
+  function sb(x) {
+    const nblk = ((x.length + 8) >> 6) + 1;
+    const blks = new Array(nblk * 16).fill(0);
+    for (let i = 0; i < x.length; i += 1) {
+      blks[i >> 2] |= x.charCodeAt(i) << ((i % 4) * 8);
+    }
+    blks[x.length >> 2] |= 0x80 << ((x.length % 4) * 8);
+    blks[nblk * 16 - 2] = x.length * 8;
+    return blks;
+  }
+
+  const x = sb(input);
+  let a = 1732584193;
+  let b = -271733879;
+  let c = -1732584194;
+  let d = 271733878;
+
+  for (let i = 0; i < x.length; i += 16) {
+    const oa = a;
+    const ob = b;
+    const oc = c;
+    const od = d;
+
+    a = ff(a, b, c, d, x[i], 7, -680876936);
+    d = ff(d, a, b, c, x[i + 1], 12, -389564586);
+    c = ff(c, d, a, b, x[i + 2], 17, 606105819);
+    b = ff(b, c, d, a, x[i + 3], 22, -1044525330);
+    a = ff(a, b, c, d, x[i + 4], 7, -176418897);
+    d = ff(d, a, b, c, x[i + 5], 12, 1200080426);
+    c = ff(c, d, a, b, x[i + 6], 17, -1473231341);
+    b = ff(b, c, d, a, x[i + 7], 22, -45705983);
+    a = ff(a, b, c, d, x[i + 8], 7, 1770035416);
+    d = ff(d, a, b, c, x[i + 9], 12, -1958414417);
+    c = ff(c, d, a, b, x[i + 10], 17, -42063);
+    b = ff(b, c, d, a, x[i + 11], 22, -1990404162);
+    a = ff(a, b, c, d, x[i + 12], 7, 1804603682);
+    d = ff(d, a, b, c, x[i + 13], 12, -40341101);
+    c = ff(c, d, a, b, x[i + 14], 17, -1502002290);
+    b = ff(b, c, d, a, x[i + 15], 22, 1236535329);
+
+    a = gg(a, b, c, d, x[i + 1], 5, -165796510);
+    d = gg(d, a, b, c, x[i + 6], 9, -1069501632);
+    c = gg(c, d, a, b, x[i + 11], 14, 643717713);
+    b = gg(b, c, d, a, x[i], 20, -373897302);
+    a = gg(a, b, c, d, x[i + 5], 5, -701558691);
+    d = gg(d, a, b, c, x[i + 10], 9, 38016083);
+    c = gg(c, d, a, b, x[i + 15], 14, -660478335);
+    b = gg(b, c, d, a, x[i + 4], 20, -405537848);
+    a = gg(a, b, c, d, x[i + 9], 5, 568446438);
+    d = gg(d, a, b, c, x[i + 14], 9, -1019803690);
+    c = gg(c, d, a, b, x[i + 3], 14, -187363961);
+    b = gg(b, c, d, a, x[i + 8], 20, 1163531501);
+    a = gg(a, b, c, d, x[i + 13], 5, -1444681467);
+    d = gg(d, a, b, c, x[i + 2], 9, -51403784);
+    c = gg(c, d, a, b, x[i + 7], 14, 1735328473);
+    b = gg(b, c, d, a, x[i + 12], 20, -1926607734);
+
+    a = hh(a, b, c, d, x[i + 5], 4, -378558);
+    d = hh(d, a, b, c, x[i + 8], 11, -2022574463);
+    c = hh(c, d, a, b, x[i + 11], 16, 1839030562);
+    b = hh(b, c, d, a, x[i + 14], 23, -35309556);
+    a = hh(a, b, c, d, x[i + 1], 4, -1530992060);
+    d = hh(d, a, b, c, x[i + 4], 11, 1272893353);
+    c = hh(c, d, a, b, x[i + 7], 16, -155497632);
+    b = hh(b, c, d, a, x[i + 10], 23, -1094730640);
+    a = hh(a, b, c, d, x[i + 13], 4, 681279174);
+    d = hh(d, a, b, c, x[i], 11, -358537222);
+    c = hh(c, d, a, b, x[i + 3], 16, -722521979);
+    b = hh(b, c, d, a, x[i + 6], 23, 76029189);
+    a = hh(a, b, c, d, x[i + 9], 4, -640364487);
+    d = hh(d, a, b, c, x[i + 12], 11, -421815835);
+    c = hh(c, d, a, b, x[i + 15], 16, 530742520);
+    b = hh(b, c, d, a, x[i + 2], 23, -995338651);
+
+    a = ii(a, b, c, d, x[i], 6, -198630844);
+    d = ii(d, a, b, c, x[i + 7], 10, 1126891415);
+    c = ii(c, d, a, b, x[i + 14], 15, -1416354905);
+    b = ii(b, c, d, a, x[i + 5], 21, -57434055);
+    a = ii(a, b, c, d, x[i + 12], 6, 1700485571);
+    d = ii(d, a, b, c, x[i + 3], 10, -1894986606);
+    c = ii(c, d, a, b, x[i + 10], 15, -1051523);
+    b = ii(b, c, d, a, x[i + 1], 21, -2054922799);
+    a = ii(a, b, c, d, x[i + 8], 6, 1873313359);
+    d = ii(d, a, b, c, x[i + 15], 10, -30611744);
+    c = ii(c, d, a, b, x[i + 6], 15, -1560198380);
+    b = ii(b, c, d, a, x[i + 13], 21, 1309151649);
+    a = ii(a, b, c, d, x[i + 4], 6, -145523070);
+    d = ii(d, a, b, c, x[i + 11], 10, -1120210379);
+    c = ii(c, d, a, b, x[i + 2], 15, 718787259);
+    b = ii(b, c, d, a, x[i + 9], 21, -343485551);
+
+    a = ad(a, oa);
+    b = ad(b, ob);
+    c = ad(c, oc);
+    d = ad(d, od);
+  }
+
+  return rh(a) + rh(b) + rh(c) + rh(d);
+}
