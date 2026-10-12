@@ -8,73 +8,274 @@ const PARTS = {
   mouth: 10
 };
 
+const PART_ORDER = ['legs', 'hair', 'arms', 'body', 'eyes', 'mouth'];
+
 const resultImage = document.getElementById('monster-result');
 const statusNode = document.getElementById('status');
-document.getElementById('generate-button').addEventListener('click', generateMonster);
+const galleryNode = document.getElementById('gallery');
+const downloadCurrentLink = document.getElementById('download-current');
+const panelV1 = document.getElementById('panel-v1');
+const panelV2 = document.getElementById('panel-v2');
+const modeButtons = document.querySelectorAll('.mode-button');
+const colorInput = document.getElementById('body-color');
+const countInput = document.getElementById('monster-count');
+const selectNodes = {
+  legs: document.getElementById('pick-legs'),
+  hair: document.getElementById('pick-hair'),
+  arms: document.getElementById('pick-arms'),
+  body: document.getElementById('pick-body'),
+  eyes: document.getElementById('pick-eyes'),
+  mouth: document.getElementById('pick-mouth')
+};
 
-async function generateMonster() {
-  statusNode.textContent = 'Generowanie MonsterID…';
+const imageCache = new Map();
+
+initialize();
+
+function initialize() {
+  populatePartSelects();
+
+  document.getElementById('generate-button').addEventListener('click', generateMonsterV1);
+  document.getElementById('generate-custom-button').addEventListener('click', generateMonsterV2);
+
+  modeButtons.forEach((button) => {
+    button.addEventListener('click', () => switchMode(button.dataset.mode));
+  });
+}
+
+function populatePartSelects() {
+  for (const part of PART_ORDER) {
+    const select = selectNodes[part];
+    for (let i = 1; i <= PARTS[part]; i += 1) {
+      const option = document.createElement('option');
+      option.value = String(i);
+      option.textContent = `${partLabel(part)} ${i}`;
+      select.append(option);
+    }
+  }
+}
+
+function partLabel(part) {
+  const labels = {
+    legs: 'Nogi',
+    hair: 'Włosy',
+    arms: 'Ręce',
+    body: 'Tułów',
+    eyes: 'Oczy',
+    mouth: 'Usta'
+  };
+  return labels[part] || part;
+}
+
+function switchMode(mode) {
+  const isV1 = mode === 'v1';
+  panelV1.hidden = !isV1;
+  panelV2.hidden = isV1;
+
+  modeButtons.forEach((button) => {
+    const active = button.dataset.mode === mode;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+
+  statusNode.textContent = isV1
+    ? 'Tryb wersji 1: szybkie losowanie jednego potworka.'
+    : 'Tryb wersji 2: wybierz składniki i liczbę potworków.';
+}
+
+async function generateMonsterV1() {
+  statusNode.textContent = 'Generowanie MonsterID (wersja 1)…';
 
   try {
     const seed = `${Date.now()}-${Math.random()}`;
     const rng = createRngFromSeed(seed);
-    const picks = {
-      legs: randInt(rng, 1, PARTS.legs),
-      hair: randInt(rng, 1, PARTS.hair),
-      arms: randInt(rng, 1, PARTS.arms),
-      body: randInt(rng, 1, PARTS.body),
-      eyes: randInt(rng, 1, PARTS.eyes),
-      mouth: randInt(rng, 1, PARTS.mouth)
-    };
+    const picks = randomPicks(rng);
+    const color = randomBodyColor(rng);
+    const canvas = await renderMonsterCanvas({ picks, color });
 
-    const canvas = document.createElement('canvas');
-    canvas.width = MONSTER_SIZE;
-    canvas.height = MONSTER_SIZE;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, MONSTER_SIZE, MONSTER_SIZE);
+    const filename = 'monsterid-v1.png';
+    const dataUrl = canvas.toDataURL('image/png');
+    showPrimaryResult(dataUrl, describeMonster(picks), filename);
+    renderGallery([]);
 
-    await drawPart(ctx, `parts/legs_${picks.legs}.png`);
-    await drawPart(ctx, `parts/hair_${picks.hair}.png`);
-    await drawPart(ctx, `parts/arms_${picks.arms}.png`);
-
-    const bodyCanvas = document.createElement('canvas');
-    bodyCanvas.width = MONSTER_SIZE;
-    bodyCanvas.height = MONSTER_SIZE;
-    const bodyCtx = bodyCanvas.getContext('2d');
-    await drawPart(bodyCtx, `parts/body_${picks.body}.png`);
-
-    floodFillBody(bodyCtx, {
-      x: 60,
-      y: 60,
-      color: [randInt(rng, 20, 235), randInt(rng, 20, 235), randInt(rng, 20, 235), 255]
-    });
-
-    ctx.drawImage(bodyCanvas, 0, 0);
-
-    await drawPart(ctx, `parts/eyes_${picks.eyes}.png`);
-    await drawPart(ctx, `parts/mouth_${picks.mouth}.png`);
-
-    resultImage.src = canvas.toDataURL('image/png');
-    resultImage.alt = `Wygenerowany MonsterID (nogi ${picks.legs}, włosy ${picks.hair}, ręce ${picks.arms}, tułów ${picks.body}, oczy ${picks.eyes}, usta ${picks.mouth}).`;
-    resultImage.hidden = false;
-    statusNode.textContent = 'Wygenerowano jednego MonsterID.';
+    statusNode.textContent = 'Wygenerowano jednego MonsterID (wersja 1).';
   } catch (error) {
-    console.error(error);
-    statusNode.textContent = 'Nie udało się wygenerować MonsterID. Spróbuj ponownie.';
+    handleGenerationError(error);
   }
 }
 
-function drawPart(ctx, src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, MONSTER_SIZE, MONSTER_SIZE);
-      resolve();
+async function generateMonsterV2() {
+  statusNode.textContent = 'Generowanie MonsterID (wersja 2)…';
+
+  try {
+    const picks = {
+      legs: Number.parseInt(selectNodes.legs.value, 10),
+      hair: Number.parseInt(selectNodes.hair.value, 10),
+      arms: Number.parseInt(selectNodes.arms.value, 10),
+      body: Number.parseInt(selectNodes.body.value, 10),
+      eyes: Number.parseInt(selectNodes.eyes.value, 10),
+      mouth: Number.parseInt(selectNodes.mouth.value, 10)
     };
+
+    const requestedCount = Number.parseInt(countInput.value, 10);
+    const count = clamp(Number.isNaN(requestedCount) ? 1 : requestedCount, 1, 50);
+    countInput.value = String(count);
+
+    const baseColor = hexToRgba(colorInput.value || '#60a5fa');
+    const rng = createRngFromSeed(`${Date.now()}-${Math.random()}-${JSON.stringify(picks)}`);
+
+    const monsters = [];
+    for (let i = 0; i < count; i += 1) {
+      const color = i === 0 ? baseColor : mutateColor(baseColor, rng);
+      const canvas = await renderMonsterCanvas({ picks, color });
+      const dataUrl = canvas.toDataURL('image/png');
+      monsters.push({
+        dataUrl,
+        filename: `monsterid-v2-${i + 1}.png`,
+        alt: describeMonster(picks)
+      });
+    }
+
+    showPrimaryResult(monsters[0].dataUrl, monsters[0].alt, monsters[0].filename);
+    renderGallery(monsters.length > 1 ? monsters : []);
+
+    statusNode.textContent = `Wygenerowano ${count} MonsterID w wersji 2.`;
+  } catch (error) {
+    handleGenerationError(error);
+  }
+}
+
+function showPrimaryResult(dataUrl, alt, filename) {
+  resultImage.src = dataUrl;
+  resultImage.alt = alt;
+  resultImage.hidden = false;
+
+  downloadCurrentLink.href = dataUrl;
+  downloadCurrentLink.download = filename;
+  downloadCurrentLink.hidden = false;
+}
+
+function renderGallery(monsters) {
+  galleryNode.replaceChildren();
+
+  monsters.forEach((monster, index) => {
+    const article = document.createElement('article');
+    article.className = 'gallery-item';
+
+    const img = document.createElement('img');
+    img.src = monster.dataUrl;
+    img.alt = `${monster.alt} #${index + 1}`;
+    img.width = 120;
+    img.height = 120;
+
+    const link = document.createElement('a');
+    link.href = monster.dataUrl;
+    link.download = monster.filename;
+    link.textContent = 'Pobierz PNG';
+
+    article.append(img, link);
+    galleryNode.append(article);
+  });
+}
+
+function handleGenerationError(error) {
+  console.error(error);
+  statusNode.textContent = 'Nie udało się wygenerować MonsterID. Spróbuj ponownie.';
+}
+
+function randomPicks(rng) {
+  return {
+    legs: randInt(rng, 1, PARTS.legs),
+    hair: randInt(rng, 1, PARTS.hair),
+    arms: randInt(rng, 1, PARTS.arms),
+    body: randInt(rng, 1, PARTS.body),
+    eyes: randInt(rng, 1, PARTS.eyes),
+    mouth: randInt(rng, 1, PARTS.mouth)
+  };
+}
+
+function randomBodyColor(rng) {
+  return [randInt(rng, 20, 235), randInt(rng, 20, 235), randInt(rng, 20, 235), 255];
+}
+
+function mutateColor(baseColor, rng) {
+  const variance = 45;
+  return [
+    clamp(baseColor[0] + randInt(rng, -variance, variance), 20, 235),
+    clamp(baseColor[1] + randInt(rng, -variance, variance), 20, 235),
+    clamp(baseColor[2] + randInt(rng, -variance, variance), 20, 235),
+    255
+  ];
+}
+
+function describeMonster(picks) {
+  return `MonsterID (nogi ${picks.legs}, włosy ${picks.hair}, ręce ${picks.arms}, tułów ${picks.body}, oczy ${picks.eyes}, usta ${picks.mouth}).`;
+}
+
+async function renderMonsterCanvas({ picks, color }) {
+  const canvas = document.createElement('canvas');
+  canvas.width = MONSTER_SIZE;
+  canvas.height = MONSTER_SIZE;
+
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, MONSTER_SIZE, MONSTER_SIZE);
+
+  await drawPart(ctx, `parts/legs_${picks.legs}.png`);
+  await drawPart(ctx, `parts/hair_${picks.hair}.png`);
+  await drawPart(ctx, `parts/arms_${picks.arms}.png`);
+
+  const bodyCanvas = document.createElement('canvas');
+  bodyCanvas.width = MONSTER_SIZE;
+  bodyCanvas.height = MONSTER_SIZE;
+  const bodyCtx = bodyCanvas.getContext('2d');
+
+  await drawPart(bodyCtx, `parts/body_${picks.body}.png`);
+
+  floodFillBody(bodyCtx, {
+    x: 60,
+    y: 60,
+    color
+  });
+
+  ctx.drawImage(bodyCanvas, 0, 0);
+
+  await drawPart(ctx, `parts/eyes_${picks.eyes}.png`);
+  await drawPart(ctx, `parts/mouth_${picks.mouth}.png`);
+
+  return canvas;
+}
+
+async function drawPart(ctx, src) {
+  const image = await loadImage(src);
+  ctx.drawImage(image, 0, 0, MONSTER_SIZE, MONSTER_SIZE);
+}
+
+function loadImage(src) {
+  if (imageCache.has(src)) {
+    return imageCache.get(src);
+  }
+
+  const promise = new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Nie udało się załadować ${src}`));
     img.src = src;
   });
+
+  imageCache.set(src, promise);
+  return promise;
+}
+
+function hexToRgba(hex) {
+  const normalized = hex.replace('#', '');
+  const isValid = /^[0-9a-fA-F]{6}$/.test(normalized);
+  if (!isValid) return [96, 165, 250, 255];
+
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  return [r, g, b, 255];
 }
 
 function floodFillBody(ctx, { x, y, color }) {
@@ -114,6 +315,10 @@ function sameColor(a, b) {
 
 function randInt(rng, min, max) {
   return Math.floor(rng() * (max - min + 1)) + min;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function createRngFromSeed(seedText) {
