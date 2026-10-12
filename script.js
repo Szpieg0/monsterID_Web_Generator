@@ -137,7 +137,7 @@ async function generateMonsterV2() {
     }
 
     showPrimaryResult(monsters[0].dataUrl, monsters[0].alt, monsters[0].filename);
-    renderGallery(monsters.length > 1 ? monsters : []);
+    renderGallery(monsters.length > 1 ? monsters.slice(1) : []);
 
     statusNode.textContent = `Wygenerowano ${count} MonsterID w wersji 2.`;
   } catch (error) {
