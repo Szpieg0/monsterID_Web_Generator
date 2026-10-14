@@ -1,4 +1,6 @@
-const MONSTER_SIZE = 120;
+const SOURCE_MONSTER_SIZE = 120;
+const EXPORT_SCALE = 4;
+const MONSTER_SIZE = SOURCE_MONSTER_SIZE * EXPORT_SCALE;
 const PARTS = {
   legs: 5,
   hair: 5,
@@ -19,6 +21,11 @@ const panelV2 = document.getElementById('panel-v2');
 const modeButtons = document.querySelectorAll('.mode-button');
 const colorInput = document.getElementById('body-color');
 const countInput = document.getElementById('monster-count');
+const randomCountInput = document.getElementById('random-count');
+const infoResolutionNode = document.getElementById('info-resolution');
+const infoCacheNode = document.getElementById('info-cache');
+const infoDurationNode = document.getElementById('info-duration');
+const infoBatchNode = document.getElementById('info-batch');
 const selectNodes = {
   legs: document.getElementById('pick-legs'),
   hair: document.getElementById('pick-hair'),
@@ -34,6 +41,7 @@ initialize();
 
 function initialize() {
   populatePartSelects();
+  updateEngineInfo({ durationMs: null, batchSize: 0 });
 
   document.getElementById('generate-button').addEventListener('click', generateMonsterV1);
   document.getElementById('generate-custom-button').addEventListener('click', generateMonsterV2);
@@ -79,26 +87,40 @@ function switchMode(mode) {
   });
 
   statusNode.textContent = isV1
-    ? 'Tryb wersji 1: szybkie losowanie jednego potworka.'
-    : 'Tryb wersji 2: wybierz składniki i liczbę potworków.';
+    ? 'Tryb wersji 1: losowanie 1-50 w pełni losowych potworków.'
+    : 'Tryb wersji 2: wybierz składniki i liczbę potworków (1-50).';
 }
 
 async function generateMonsterV1() {
-  statusNode.textContent = 'Generowanie MonsterID (wersja 1)…';
+  statusNode.textContent = 'Generowanie losowych MonsterID (wersja 1)…';
+  const startedAt = performance.now();
 
   try {
+    const requestedCount = Number.parseInt(randomCountInput.value, 10);
+    const count = clamp(Number.isNaN(requestedCount) ? 1 : requestedCount, 1, 50);
+    randomCountInput.value = String(count);
+
     const seed = `${Date.now()}-${Math.random()}`;
     const rng = createRngFromSeed(seed);
-    const picks = randomPicks(rng);
-    const color = randomBodyColor(rng);
-    const canvas = await renderMonsterCanvas({ picks, color });
+    const monsters = await Promise.all(
+      Array.from({ length: count }, async (_, index) => {
+        const picks = randomPicks(rng);
+        const color = randomBodyColor(rng);
+        const canvas = await renderMonsterCanvas({ picks, color });
+        return {
+          dataUrl: canvas.toDataURL('image/png'),
+          filename: `monsterid-v1-${index + 1}.png`,
+          alt: describeMonster(picks)
+        };
+      })
+    );
 
-    const filename = 'monsterid-v1.png';
-    const dataUrl = canvas.toDataURL('image/png');
-    showPrimaryResult(dataUrl, describeMonster(picks), filename);
-    renderGallery([]);
+    showPrimaryResult(monsters[0].dataUrl, monsters[0].alt, monsters[0].filename);
+    renderGallery(monsters.length > 1 ? monsters.slice(1) : []);
 
-    statusNode.textContent = 'Wygenerowano jednego MonsterID (wersja 1).';
+    const duration = performance.now() - startedAt;
+    statusNode.textContent = `Wygenerowano ${count} losowych MonsterID w wersji 1 (${Math.round(duration)} ms).`;
+    updateEngineInfo({ durationMs: duration, batchSize: count });
   } catch (error) {
     handleGenerationError(error);
   }
@@ -106,6 +128,7 @@ async function generateMonsterV1() {
 
 async function generateMonsterV2() {
   statusNode.textContent = 'Generowanie MonsterID (wersja 2)…';
+  const startedAt = performance.now();
 
   try {
     const picks = {
@@ -124,22 +147,24 @@ async function generateMonsterV2() {
     const baseColor = hexToRgba(colorInput.value || '#60a5fa');
     const rng = createRngFromSeed(`${Date.now()}-${Math.random()}-${JSON.stringify(picks)}`);
 
-    const monsters = [];
-    for (let i = 0; i < count; i += 1) {
-      const color = i === 0 ? baseColor : mutateColor(baseColor, rng);
-      const canvas = await renderMonsterCanvas({ picks, color });
-      const dataUrl = canvas.toDataURL('image/png');
-      monsters.push({
-        dataUrl,
-        filename: `monsterid-v2-${i + 1}.png`,
-        alt: describeMonster(picks)
-      });
-    }
+    const monsters = await Promise.all(
+      Array.from({ length: count }, async (_, index) => {
+        const color = index === 0 ? baseColor : mutateColor(baseColor, rng);
+        const canvas = await renderMonsterCanvas({ picks, color });
+        return {
+          dataUrl: canvas.toDataURL('image/png'),
+          filename: `monsterid-v2-${index + 1}.png`,
+          alt: describeMonster(picks)
+        };
+      })
+    );
 
     showPrimaryResult(monsters[0].dataUrl, monsters[0].alt, monsters[0].filename);
     renderGallery(monsters.length > 1 ? monsters.slice(1) : []);
 
-    statusNode.textContent = `Wygenerowano ${count} MonsterID w wersji 2.`;
+    const duration = performance.now() - startedAt;
+    statusNode.textContent = `Wygenerowano ${count} MonsterID w wersji 2 (${Math.round(duration)} ms).`;
+    updateEngineInfo({ durationMs: duration, batchSize: count });
   } catch (error) {
     handleGenerationError(error);
   }
@@ -151,7 +176,10 @@ function showPrimaryResult(dataUrl, alt, filename) {
   resultImage.hidden = false;
 
   downloadCurrentLink.href = dataUrl;
-  downloadCurrentLink.download = filename;
+  downloadCurrentLink.target = '_blank';
+  downloadCurrentLink.rel = 'noopener noreferrer';
+  downloadCurrentLink.removeAttribute('download');
+  downloadCurrentLink.textContent = `Otwórz ${filename} w nowej karcie`;
   downloadCurrentLink.hidden = false;
 }
 
@@ -170,8 +198,9 @@ function renderGallery(monsters) {
 
     const link = document.createElement('a');
     link.href = monster.dataUrl;
-    link.download = monster.filename;
-    link.textContent = 'Pobierz PNG';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = `Otwórz ${monster.filename}`;
 
     article.append(img, link);
     galleryNode.append(article);
@@ -181,6 +210,13 @@ function renderGallery(monsters) {
 function handleGenerationError(error) {
   console.error(error);
   statusNode.textContent = 'Nie udało się wygenerować MonsterID. Spróbuj ponownie.';
+}
+
+function updateEngineInfo({ durationMs, batchSize }) {
+  infoResolutionNode.textContent = `${MONSTER_SIZE}×${MONSTER_SIZE} px`;
+  infoCacheNode.textContent = `${imageCache.size} plików`;
+  infoDurationNode.textContent = durationMs == null ? '—' : `${Math.round(durationMs)} ms`;
+  infoBatchNode.textContent = String(batchSize);
 }
 
 function randomPicks(rng) {
@@ -214,20 +250,20 @@ function describeMonster(picks) {
 
 async function renderMonsterCanvas({ picks, color }) {
   const canvas = document.createElement('canvas');
-  canvas.width = MONSTER_SIZE;
-  canvas.height = MONSTER_SIZE;
+  canvas.width = SOURCE_MONSTER_SIZE;
+  canvas.height = SOURCE_MONSTER_SIZE;
 
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, MONSTER_SIZE, MONSTER_SIZE);
+  ctx.fillRect(0, 0, SOURCE_MONSTER_SIZE, SOURCE_MONSTER_SIZE);
 
   await drawPart(ctx, `parts/legs_${picks.legs}.png`);
   await drawPart(ctx, `parts/hair_${picks.hair}.png`);
   await drawPart(ctx, `parts/arms_${picks.arms}.png`);
 
   const bodyCanvas = document.createElement('canvas');
-  bodyCanvas.width = MONSTER_SIZE;
-  bodyCanvas.height = MONSTER_SIZE;
+  bodyCanvas.width = SOURCE_MONSTER_SIZE;
+  bodyCanvas.height = SOURCE_MONSTER_SIZE;
   const bodyCtx = bodyCanvas.getContext('2d');
 
   await drawPart(bodyCtx, `parts/body_${picks.body}.png`);
@@ -243,12 +279,19 @@ async function renderMonsterCanvas({ picks, color }) {
   await drawPart(ctx, `parts/eyes_${picks.eyes}.png`);
   await drawPart(ctx, `parts/mouth_${picks.mouth}.png`);
 
-  return canvas;
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = MONSTER_SIZE;
+  exportCanvas.height = MONSTER_SIZE;
+  const exportCtx = exportCanvas.getContext('2d');
+  exportCtx.imageSmoothingEnabled = false;
+  exportCtx.drawImage(canvas, 0, 0, MONSTER_SIZE, MONSTER_SIZE);
+
+  return exportCanvas;
 }
 
 async function drawPart(ctx, src) {
   const image = await loadImage(src);
-  ctx.drawImage(image, 0, 0, MONSTER_SIZE, MONSTER_SIZE);
+  ctx.drawImage(image, 0, 0, SOURCE_MONSTER_SIZE, SOURCE_MONSTER_SIZE);
 }
 
 function loadImage(src) {
@@ -279,9 +322,9 @@ function hexToRgba(hex) {
 }
 
 function floodFillBody(ctx, { x, y, color }) {
-  const imageData = ctx.getImageData(0, 0, MONSTER_SIZE, MONSTER_SIZE);
+  const imageData = ctx.getImageData(0, 0, SOURCE_MONSTER_SIZE, SOURCE_MONSTER_SIZE);
   const { data } = imageData;
-  const start = (y * MONSTER_SIZE + x) * 4;
+  const start = (y * SOURCE_MONSTER_SIZE + x) * 4;
   const target = [data[start], data[start + 1], data[start + 2], data[start + 3]];
 
   if (sameColor(target, color)) return;
@@ -289,9 +332,9 @@ function floodFillBody(ctx, { x, y, color }) {
   const stack = [[x, y]];
   while (stack.length) {
     const [cx, cy] = stack.pop();
-    if (cx < 0 || cy < 0 || cx >= MONSTER_SIZE || cy >= MONSTER_SIZE) continue;
+    if (cx < 0 || cy < 0 || cx >= SOURCE_MONSTER_SIZE || cy >= SOURCE_MONSTER_SIZE) continue;
 
-    const idx = (cy * MONSTER_SIZE + cx) * 4;
+    const idx = (cy * SOURCE_MONSTER_SIZE + cx) * 4;
     const current = [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
     if (!sameColor(current, target)) continue;
 
