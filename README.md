@@ -5,11 +5,15 @@ Prywatny generator MonsterID pod GitHub Pages, oparty na oryginalnym projekcie [
 ## Co zawiera repozytorium
 
 - statyczną stronę (`index.html`, `style.css`, `script.js`) z dwoma trybami pracy:
-  - **Wersja 1**: szybkie losowanie jednego MonsterID,
+  - **Wersja 1**: szybkie losowanie od 1 do 50 w pełni losowych MonsterID,
   - **Wersja 2**: kreator własnego MonsterID z wyborem składników, koloru i liczby generowanych potworków (1-50),
-- eksport do PNG (pobieranie aktualnego wyniku oraz wygenerowanych elementów w galerii),
+- eksport do PNG (otwieranie aktualnego wyniku oraz wygenerowanych elementów w nowej karcie),
 - zasoby graficzne MonsterID w katalogu `parts/`,
 - workflow GitHub Actions publikujący stronę przez GitHub Pages (`.github/workflows/pages.yml`).
+
+## Link do GitHub Pages
+
+- https://szpieg0.github.io/monsterID/
 
 ## Uruchomienie lokalne
 

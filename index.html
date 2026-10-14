@@ -9,7 +9,7 @@
 <body>
   <main class="app">
     <h1>MonsterID Generator</h1>
-    <p class="subtitle">Wybierz wersję generatora i twórz potworki.</p>
+    <p class="subtitle">Wybierz wersję generatora i twórz potworki (nawet 50 na raz).</p>
 
     <div class="version-switch" role="tablist" aria-label="Wybór wersji generatora">
       <button id="mode-v1" class="mode-button is-active" type="button" data-mode="v1" role="tab" aria-selected="true">Wersja 1</button>
@@ -17,8 +17,13 @@
     </div>
 
     <section id="panel-v1" class="panel" aria-labelledby="mode-v1">
-      <p class="panel-subtitle">Szybkie losowanie jednego MonsterID jak dotychczas.</p>
-      <button id="generate-button" type="button">Wygeneruj MonsterID</button>
+      <p class="panel-subtitle">Losowanie gotowych MonsterID (1-50) z pełną losowością składników i koloru.</p>
+      <div class="controls-row controls-row--single">
+        <label> Liczba losowych potworków (1-50)
+          <input id="random-count" type="number" min="1" max="50" value="1">
+        </label>
+      </div>
+      <button id="generate-button" type="button">Wygeneruj losowe MonsterID</button>
     </section>
 
     <section id="panel-v2" class="panel" aria-labelledby="mode-v2" hidden>
@@ -58,15 +63,25 @@
     </section>
 
     <figure class="result" aria-labelledby="result-caption">
-      <img id="monster-result" width="240" height="240" alt="Wynik jeszcze nie został wygenerowany." hidden>
+      <img id="monster-result" width="480" height="480" alt="Wynik jeszcze nie został wygenerowany." hidden>
       <figcaption id="result-caption">Wynik MonsterID</figcaption>
     </figure>
 
-    <a id="download-current" class="download-link" href="#" download="monsterid.png" hidden>Pobierz aktualny PNG</a>
+    <a id="download-current" class="download-link" href="#" hidden>Otwórz aktualny PNG w nowej karcie</a>
 
     <section id="gallery" class="gallery" aria-label="Wygenerowane potworki"></section>
 
     <p id="status" role="status" aria-live="polite">Gotowe do generowania.</p>
+
+    <section class="engine-info" aria-label="Informacje techniczne generatora">
+      <h2>Co dzieje się pod maską?</h2>
+      <ul>
+        <li>Render PNG: <strong id="info-resolution">480×480 px</strong></li>
+        <li>Cache grafik części: <strong id="info-cache">0 plików</strong></li>
+        <li>Ostatni czas generowania: <strong id="info-duration">—</strong></li>
+        <li>Ostatnia paczka: <strong id="info-batch">0</strong></li>
+      </ul>
+    </section>
   </main>
 
   <script src="script.js"></script>
